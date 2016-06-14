@@ -7,6 +7,10 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.ListView;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,12 +20,35 @@ import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
 
+    private String mFileContents; //stores data we get from XML file
+    private Button btnParse;
+    private ListView listApps;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        btnParse = (Button) findViewById(R.id.btnParse);
+        listApps = (ListView) findViewById(R.id.xmlListView);
+
+        btnParse.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                //TODO: Add parse activation <code></code>
+
+                ParseApplications parseApplications = new ParseApplications(mFileContents);
+                parseApplications.process();
+                ArrayAdapter<Application> arrayAdapter = new ArrayAdapter<Application>(
+                        MainActivity.this, R.layout.list_item, parseApplications.getApplications());
+                listApps.setAdapter(arrayAdapter);
+            }
+        });
+
+        DownloadData downloadData = new DownloadData();
+        downloadData.execute("http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topfreeapplications/limit=10/xml");
 
     }
 
@@ -49,10 +76,10 @@ public class MainActivity extends AppCompatActivity {
 
     //AsyncTask < DOWNLOAD LOCATION, PROGRESS BAR, RESULT >
     private class DownloadData extends AsyncTask<String, Void, String> {
-        private String mFileContents; //stores data we get from XML file
 
         //String... variable number of arguments
         //do in background - run without blocking
+        //runs automatically with downloadData.execute()
         @Override
         protected String doInBackground(String... params) {
             mFileContents = downloadXMLFile(params[0]);
@@ -62,7 +89,16 @@ public class MainActivity extends AppCompatActivity {
             return mFileContents;
         }
 
-        private String downloadXMFile(String urlPath) {
+        // Automatically executes after successful download
+        // Code to update user interface
+        @Override
+        protected void onPostExecute(String result) {
+            super.onPostExecute(result);
+            Log.d("DownloadData", "Result: " + result);
+
+        }
+
+        private String downloadXMLFile(String urlPath) {
             //temporary buffer used to store XML file
             StringBuilder tempBuffer = new StringBuilder();
 
@@ -73,6 +109,7 @@ public class MainActivity extends AppCompatActivity {
                 URL url = new URL(urlPath);
                 HttpURLConnection connection = (HttpURLConnection)  url.openConnection();
                 int response = connection.getResponseCode();
+                //200 successfully read, 404 file was not found, http 500 error with server
                 Log.d("DownloadData", "The response code was " + response);
                 InputStream is = connection.getInputStream();
                 InputStreamReader isr = new InputStreamReader(is);
@@ -92,8 +129,14 @@ public class MainActivity extends AppCompatActivity {
 
             } catch(IOException e){
                 Log.d("DownloadData", "IO Exception reading data: " + e.getMessage());
+                e.printStackTrace();
+            } catch(SecurityException e){
+                Log.d("DownloadData", "Security exception. Needs permission? " + e.getMessage());
             }
-
+            return null;
         }
+
+
+
     }
 }
